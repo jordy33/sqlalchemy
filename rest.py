@@ -1,5 +1,10 @@
 import cherrypy
+import cherrypy as http
+import uuid
 import json
+import random
+import string
+from jinja2 import Environment, FileSystemLoader
 from create_database import Base,Person, Address
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -8,10 +13,23 @@ Base.metadata.bind = engine
 DBSession = sessionmaker()
 DBSession.bind = engine
 session = DBSession()
+env = Environment(loader=FileSystemLoader('templates'))
+
+class Root(object):
+
+    @cherrypy.expose
+    def index(self):
+        tmpl=env.get_template('basicform.html')
+        return(tmpl.render())
+    index.exposed = True
+
+    @cherrypy.expose
+    def generate(self, length=8):
+        return ''.join(random.sample(string.hexdigits, int(length)))
 
 class Rest:
-    exposed = True
     # Read
+    exposed = True
     def GET(self, id=None):
         list=[]
         if id is None:
@@ -67,12 +85,19 @@ class Rest:
 
 if __name__ == '__main__':
     # http://127.0.0.1:8080/api/v1/persons
+    cherrypy.config.update({
+    'global': {
+        'environment': 'test_suite',
+        'server.socket_host': '127.0.0.1',
+        'server.socket_port': 8080,
+    }
+    })
     cherrypy.tree.mount(
         Rest(), '/api/v1/persons',
         {'/':
             {'request.dispatch': cherrypy.dispatch.MethodDispatcher()}
          }
     )
-
+    cherrypy.tree.mount(Root())
     cherrypy.engine.start()
     cherrypy.engine.block()
